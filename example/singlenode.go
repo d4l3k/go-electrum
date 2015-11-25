@@ -25,5 +25,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Banner: %s", address)
+	log.Printf("Address: %s", address)
+	peers, err := node.ServerPeersSubscribe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Peers: %+v", peers)
+	numblocks, err := node.BlockchainNumBlocksSubscribe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Numblocks: %+v", numblocks)
+	header, err := node.BlockchainHeadersSubscribe()
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.Printf("Headers: %+v", header)
 }

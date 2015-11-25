@@ -3,6 +3,7 @@ package electrum
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"sync"
 )
@@ -20,8 +21,19 @@ type Transport interface {
 	Errors() <-chan error
 }
 
-func FindElectrumServersIRC() ([]*Node, error) {
-	return nil, ErrNotImplemented
+type respMetadata struct {
+	Id    int    `json:"id"`
+	Error string `json:"error"`
+}
+
+type request struct {
+	Id     int      `json:"id"`
+	Method string   `json:"method"`
+	Params []string `json:"params"`
+}
+
+type basicResp struct {
+	Result string `json:"result"`
 }
 
 type Node struct {
@@ -45,10 +57,6 @@ func NewNode(addr string) (*Node, error) {
 	return n, nil
 }
 
-type resp struct {
-	Id int `json:"id"`
-}
-
 func (n *Node) err(err error) {
 	// TODO (d4l3k) Better error handling.
 	log.Fatal(err)
@@ -61,9 +69,13 @@ func (n *Node) listen() {
 			n.err(err)
 			return
 		case bytes := <-n.transport.Responses():
-			msg := &resp{}
+			msg := &respMetadata{}
 			if err := json.Unmarshal(bytes, msg); err != nil {
 				n.err(err)
+				return
+			}
+			if len(msg.Error) > 0 {
+				n.err(fmt.Errorf("error from server: %#v", msg.Error))
 				return
 			}
 
@@ -78,14 +90,8 @@ func (n *Node) listen() {
 	}
 }
 
-type message struct {
-	Id     int      `json:"id"`
-	Method string   `json:"method"`
-	Params []string `json:"params"`
-}
-
 func (n *Node) request(method string, params []string, v interface{}) error {
-	msg := message{
+	msg := request{
 		Id:     n.nextId,
 		Method: method,
 		Params: params,
@@ -117,77 +123,3 @@ func (n *Node) request(method string, params []string, v interface{}) error {
 	}
 	return nil
 }
-
-type basicResp struct {
-	Result string `json:"result"`
-}
-
-// ServerVersion returns the server's version.
-// http://docs.electrum.org/en/latest/protocol.html#server-version
-func (n *Node) ServerVersion() (string, error) {
-	resp := &basicResp{}
-	err := n.request("server.version", []string{ClientVersion, ProtocolVersion}, resp)
-	return resp.Result, err
-}
-
-// ServerBanner returns the server's banner.
-// http://docs.electrum.org/en/latest/protocol.html#server-banner
-func (n *Node) ServerBanner() (string, error) {
-	resp := &basicResp{}
-	err := n.request("server.banner", []string{ClientVersion, ProtocolVersion}, resp)
-	return resp.Result, err
-}
-
-// ServerDonationAddress returns the donation address of the server.
-// http://docs.electrum.org/en/latest/protocol.html#server-donation-address
-func (n *Node) ServerDonationAddress() (string, error) {
-	resp := &basicResp{}
-	err := n.request("server.donation_address", []string{ClientVersion, ProtocolVersion}, resp)
-	return resp.Result, err
-}
-
-// ServerPeersSubscribe requests peers from a server.
-// http://docs.electrum.org/en/latest/protocol.html#server-peers-subscribe
-func (n *Node) ServerPeersSubscribe() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-numblocks-subscribe
-func (n *Node) BlockchainNumblocksSubscribe() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-headers-subscribe
-func (n *Node) BlockchainHeadersSubscribe() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-subscribe
-func (n *Node) BlockchainAddressSubscribe() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-get-history
-func (n *Node) BlockchainAddressGetHistory() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-get-mempool
-func (n *Node) BlockchainAddressGetMempool() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-get-balance
-func (n *Node) BlockchainAddressGetBalance() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-get-proof
-func (n *Node) BlockchainAddressGetProof() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-address-listunspent
-func (n *Node) BlockchainAddressListunspent() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-utxo-get-address
-func (n *Node) BlockchainUtxoGetAddress() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-block-get-header
-func (n *Node) BlockchainBlockGetHeader() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-block-get-chunk
-func (n *Node) BlockchainBlockGetChunk() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-transaction-broadcast
-func (n *Node) BlockchainTransactionBroadcast() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-transaction-get-merkle
-func (n *Node) BlockchainTransactionGetMerkle() error { return ErrNotImplemented }
-
-// http://docs.electrum.org/en/latest/protocol.html#blockchain-transaction-get
-func (n *Node) BlockchainTransactionGet() error { return ErrNotImplemented }
