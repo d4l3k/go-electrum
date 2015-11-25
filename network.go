@@ -13,7 +13,10 @@ const (
 	ProtocolVersion = "1.0"
 )
 
-var ErrNotImplemented = errors.New("error not implemented")
+var (
+	ErrNotImplemented = errors.New("not implemented")
+	ErrNodeConnected  = errors.New("node already connected")
+)
 
 type Transport interface {
 	SendMessage([]byte) error
@@ -38,6 +41,8 @@ type basicResp struct {
 }
 
 type Node struct {
+	Address string
+
 	transport    Transport
 	handlers     map[int]chan []byte
 	handlersLock sync.RWMutex
@@ -48,25 +53,37 @@ type Node struct {
 	nextId int
 }
 
-func NewNode(addr string) (*Node, error) {
-	transport, err := NewTCPTransport(addr)
-	if err != nil {
-		return nil, err
-	}
+// NewNode creates a new node.
+func NewNode() *Node {
 	n := &Node{
-		transport:    transport,
 		handlers:     make(map[int]chan []byte),
 		pushHandlers: make(map[string][]chan []byte),
 	}
-	go n.listen()
-	return n, nil
+	return n
 }
 
+// ConnectTCP creates a new TCP connection to the specified address.
+func (n *Node) ConnectTCP(addr string) error {
+	if n.transport != nil {
+		return ErrNodeConnected
+	}
+	n.Address = addr
+	transport, err := NewTCPTransport(addr)
+	if err != nil {
+		return err
+	}
+	n.transport = transport
+	go n.listen()
+	return nil
+}
+
+// err handles errors produced by the foreign node.
 func (n *Node) err(err error) {
 	// TODO (d4l3k) Better error handling.
 	log.Fatal(err)
 }
 
+// listen processes messages from the server.
 func (n *Node) listen() {
 	for {
 		select {
@@ -107,7 +124,7 @@ func (n *Node) listen() {
 	}
 }
 
-// Listen returns a channel of messages matching the method.
+// listenPush returns a channel of messages matching the method.
 func (n *Node) listenPush(method string) <-chan []byte {
 	c := make(chan []byte, 1)
 	n.pushHandlersLock.Lock()
@@ -116,6 +133,7 @@ func (n *Node) listenPush(method string) <-chan []byte {
 	return c
 }
 
+// request makes a request to the server and unmarshals the response into v.
 func (n *Node) request(method string, params []string, v interface{}) error {
 	msg := request{
 		Id:     n.nextId,

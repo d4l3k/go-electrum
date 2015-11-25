@@ -7,8 +7,8 @@ import (
 )
 
 func main() {
-	node, err := electrum.NewNode("electrum.dragonzone.net:50001")
-	if err != nil {
+	node := electrum.NewNode()
+	if err := node.ConnectTCP("electrum.dragonzone.net:50001"); err != nil {
 		log.Fatal(err)
 	}
 
