@@ -22,8 +22,9 @@ type Transport interface {
 }
 
 type respMetadata struct {
-	Id    int    `json:"id"`
-	Error string `json:"error"`
+	Id     int    `json:"id"`
+	Method string `json:"method"`
+	Error  string `json:"error"`
 }
 
 type request struct {
@@ -41,6 +42,9 @@ type Node struct {
 	handlers     map[int]chan []byte
 	handlersLock sync.RWMutex
 
+	pushHandlers     map[string][]chan []byte
+	pushHandlersLock sync.RWMutex
+
 	nextId int
 }
 
@@ -50,8 +54,9 @@ func NewNode(addr string) (*Node, error) {
 		return nil, err
 	}
 	n := &Node{
-		transport: transport,
-		handlers:  make(map[int]chan []byte),
+		transport:    transport,
+		handlers:     make(map[int]chan []byte),
+		pushHandlers: make(map[string][]chan []byte),
 	}
 	go n.listen()
 	return n, nil
@@ -78,6 +83,18 @@ func (n *Node) listen() {
 				n.err(fmt.Errorf("error from server: %#v", msg.Error))
 				return
 			}
+			if len(msg.Method) > 0 {
+				n.pushHandlersLock.RLock()
+				handlers := n.pushHandlers[msg.Method]
+				n.pushHandlersLock.RUnlock()
+
+				for _, handler := range handlers {
+					select {
+					case handler <- bytes:
+					default:
+					}
+				}
+			}
 
 			n.handlersLock.RLock()
 			c, ok := n.handlers[msg.Id]
@@ -88,6 +105,15 @@ func (n *Node) listen() {
 			}
 		}
 	}
+}
+
+// Listen returns a channel of messages matching the method.
+func (n *Node) listenPush(method string) <-chan []byte {
+	c := make(chan []byte, 1)
+	n.pushHandlersLock.Lock()
+	defer n.pushHandlersLock.Unlock()
+	n.pushHandlers[method] = append(n.pushHandlers[method], c)
+	return c
 }
 
 func (n *Node) request(method string, params []string, v interface{}) error {

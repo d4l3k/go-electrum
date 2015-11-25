@@ -1,5 +1,10 @@
 package electrum
 
+import (
+	"encoding/json"
+	"log"
+)
+
 // BlockchainNumBlocksSubscribe returns the current number of blocks.
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-numblocks-subscribe
 func (n *Node) BlockchainNumBlocksSubscribe() (int, error) {
@@ -23,24 +28,65 @@ type BlockchainHeader struct {
 
 // BlockchainHeadersSubscribe request client notifications about new blocks in
 // form of parsed blockheaders and returns the current block header.
-// TODO (d4l3k) handle header updates
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-headers-subscribe
-func (n *Node) BlockchainHeadersSubscribe() (*BlockchainHeader, error) {
+func (n *Node) BlockchainHeadersSubscribe() (<-chan *BlockchainHeader, error) {
 	resp := &struct {
 		Result *BlockchainHeader `json:"result"`
 	}{}
-	err := n.request("blockchain.headers.subscribe", nil, resp)
-	return resp.Result, err
+	if err := n.request("blockchain.headers.subscribe", nil, resp); err != nil {
+		return nil, err
+	}
+	headerChan := make(chan *BlockchainHeader, 1)
+	headerChan <- resp.Result
+	go func() {
+		for msg := range n.listenPush("blockchain.headers.subscribe") {
+			resp := &struct {
+				Params []*BlockchainHeader `json:"params"`
+			}{}
+			if err := json.Unmarshal(msg, resp); err != nil {
+				log.Printf("ERR %s", err)
+				return
+			}
+			for _, param := range resp.Params {
+				headerChan <- param
+			}
+		}
+	}()
+	return headerChan, nil
 }
 
 // BlockchainAddressSubscribe subscribes to transactions on an address and
 // returns the hash of the transaction history.
-// TODO (d4l3k) handle address updates
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-address-subscribe
-func (n *Node) BlockchainAddressSubscribe(address string) (string, error) {
+func (n *Node) BlockchainAddressSubscribe(address string) (<-chan string, error) {
 	resp := &basicResp{}
 	err := n.request("blockchain.address.subscribe", []string{address}, resp)
-	return resp.Result, err
+	if err != nil {
+		return nil, err
+	}
+	addressChan := make(chan string, 1)
+	if len(resp.Result) > 0 {
+		addressChan <- resp.Result
+	}
+	go func() {
+		for msg := range n.listenPush("blockchain.address.subscribe") {
+			resp := &struct {
+				Params []string `json:"params"`
+			}{}
+			if err := json.Unmarshal(msg, resp); err != nil {
+				log.Printf("ERR %s", err)
+				return
+			}
+			if len(resp.Params) != 2 {
+				log.Printf("address subscription params len != 2 %+v", resp.Params)
+				continue
+			}
+			if resp.Params[0] == address {
+				addressChan <- resp.Params[1]
+			}
+		}
+	}()
+	return addressChan, err
 }
 
 type Transaction struct {

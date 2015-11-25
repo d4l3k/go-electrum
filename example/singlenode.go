@@ -42,17 +42,25 @@ func main() {
 	}
 	log.Printf("Numblocks: %+v", numblocks)
 
-	header, err := node.BlockchainHeadersSubscribe()
+	headerChan, err := node.BlockchainHeadersSubscribe()
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Headers: %+v", header)
+	go func() {
+		for header := range headerChan {
+			log.Printf("Headers: %+v", header)
+		}
+	}()
 
-	hash, err := node.BlockchainAddressSubscribe("1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L")
+	hashChan, err := node.BlockchainAddressSubscribe("1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Address history hash: %+v", hash)
+	go func() {
+		for hash := range hashChan {
+			log.Printf("Address history hash: %+v", hash)
+		}
+	}()
 
 	history, err := node.BlockchainAddressGetHistory("1NS17iag9jJgTHD1VXjvLCEnZuQ3rJDE9L")
 	if err != nil {
