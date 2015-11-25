@@ -26,7 +26,7 @@ func main() {
 	log.Printf("Address balance: %+v", balance)
 }
 ```
-See [examples/](https://github.com/d4l3k/go-electrum/tree/master/example) for more.
+See [example/](https://github.com/d4l3k/go-electrum/tree/master/example) for more.
 
 # License
 go-electrum is licensed under the MIT license.
