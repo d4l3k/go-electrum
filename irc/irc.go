@@ -22,7 +22,6 @@ func FindElectrumServers() ([]string, error) {
 	user := fmt.Sprintf(UsernameTemplate, rand.Int31())
 	ircobj := irc.IRC(user, user)
 	ircobj.UseTLS = false
-	ircobj.VerboseCallbackHandler = true
 	ircobj.TLSConfig = &tls.Config{
 		InsecureSkipVerify: true,
 	}
