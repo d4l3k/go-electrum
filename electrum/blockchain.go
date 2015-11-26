@@ -3,6 +3,8 @@ package electrum
 import (
 	"encoding/json"
 	"log"
+
+	"github.com/btcsuite/btcutil"
 )
 
 // BlockchainNumBlocksSubscribe returns the current number of blocks.
@@ -111,8 +113,8 @@ func (n *Node) BlockchainAddressGetHistory(address string) ([]*Transaction, erro
 func (n *Node) BlockchainAddressGetMempool() error { return ErrNotImplemented }
 
 type Balance struct {
-	Confirmed   int `json:"confirmed"`
-	Unconfirmed int `json:"unconfirmed"`
+	Confirmed   btcutil.Amount `json:"confirmed"`
+	Unconfirmed btcutil.Amount `json:"unconfirmed"`
 }
 
 // BlockchainAddressGetBalance returns the balance of an address.
