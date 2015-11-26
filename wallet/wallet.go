@@ -1,11 +1,16 @@
 package wallet
 
 import (
+	"log"
+	"time"
+
 	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcwallet/netparams"
 	"github.com/btcsuite/btcwallet/waddrmgr"
 	"github.com/btcsuite/btcwallet/wallet"
 	"github.com/btcsuite/btcwallet/walletdb"
+	"github.com/btcsuite/btcwallet/wtxmgr"
+	"github.com/d4l3k/go-electrum/electrum"
 
 	_ "github.com/btcsuite/btcwallet/walletdb/bdb"
 )
@@ -19,6 +24,7 @@ var (
 
 type Wallet struct {
 	wallet *wallet.Wallet
+	node   *electrum.Node
 }
 
 // Addresses returns all addresses generated in the current bitcoin wallet.
@@ -52,15 +58,49 @@ func (w *Wallet) GenAddresses(n int) ([]btcutil.Address, error) {
 }
 
 // SendBitcoin sends some amount of bitcoin specifying minimum confirmations.
-func (w *Wallet) SendBitcoin(to map[string]btcutil.Amount, minconf int) error {
-	acc, err := w.wallet.Manager.LastAccount()
+func (w *Wallet) SendBitcoin(amounts map[string]btcutil.Amount, minconf int) error {
+	account, err := w.wallet.Manager.LastAccount()
 	if err != nil {
 		return err
 	}
+
+	// taken from https://github.com/btcsuite/btcwallet/blob/master/wallet/wallet.go SendPairs
+
+	// Create transaction, replying with an error if the creation
+	// was not successful.
+	createdTx, err := w.wallet.CreateSimpleTx(account, amounts, int32(minconf))
 	if err != nil {
 		return err
 	}
-	tx, err := w.wallet.CreateSimpleTx(acc, to, int32(minconf))
+
+	// Create transaction record and insert into the db.
+	rec, err := wtxmgr.NewTxRecordFromMsgTx(createdTx.MsgTx, time.Now())
+	if err != nil {
+		log.Printf("Cannot create record for created transaction: %v", err)
+		return err
+	}
+	err = w.wallet.TxStore.InsertTx(rec, nil)
+	if err != nil {
+		log.Printf("Error adding sent tx history: %v", err)
+		return err
+	}
+
+	if createdTx.ChangeIndex >= 0 {
+		err = w.wallet.TxStore.AddCredit(rec, nil, uint32(createdTx.ChangeIndex), true)
+		if err != nil {
+			log.Printf("Error adding change address for sent "+"tx: %v", err)
+			return err
+		}
+	}
+
+	resp, err := w.node.BlockchainTransactionBroadcast(rec.SerializedTx)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("RESP broadcast %#v", resp)
+
+	return nil
 }
 
 func stripManagedAddrs(mAddrs []waddrmgr.ManagedAddress) []btcutil.Address {
@@ -125,7 +165,14 @@ func openWallet(db walletdb.DB, privPass string, seed []byte) (*Wallet, error) {
 		return nil, err
 	}
 
+	// TODO: use more than 1 node
+	node := electrum.NewNode()
+	if err := node.ConnectTCP("btc.mustyoshi.com:50001"); err != nil {
+		return nil, err
+	}
+
 	return &Wallet{
 		wallet: w,
+		node:   node,
 	}, nil
 }

@@ -154,9 +154,16 @@ func (n *Node) BlockchainBlockGetHeader() error { return ErrNotImplemented }
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-block-get-chunk
 func (n *Node) BlockchainBlockGetChunk() error { return ErrNotImplemented }
 
+// BlockchainTransactionBroadcast sends a raw transaction.
 // TODO(d4l3k) implement
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-transaction-broadcast
-func (n *Node) BlockchainTransactionBroadcast() error { return ErrNotImplemented }
+func (n *Node) BlockchainTransactionBroadcast(tx []byte) (interface{}, error) {
+	resp := &struct {
+		Result interface{} `json:"result"`
+	}{}
+	err := n.request("blockchain.transaction.broadcast", []string{string(tx)}, resp)
+	return resp.Result, err
+}
 
 // TODO(d4l3k) implement
 // http://docs.electrum.org/en/latest/protocol.html#blockchain-transaction-get-merkle
