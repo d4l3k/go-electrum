@@ -38,6 +38,7 @@ func wordsLanguage(lang string) ([]string, error) {
 }
 
 // GenerateSeed returns a random seed based off a word list in the specified language. Languages are "
+// TODO (d4l3k) change length based on number of words
 func GenerateSeed(lang string) (string, error) {
 	words, err := wordsLanguage(lang)
 	if err != nil {

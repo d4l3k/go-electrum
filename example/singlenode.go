@@ -8,7 +8,7 @@ import (
 
 func main() {
 	node := electrum.NewNode()
-	if err := node.ConnectTCP("electrum.dragonzone.net:50001"); err != nil {
+	if err := node.ConnectTCP("btc.mustyoshi.com:50001"); err != nil {
 		log.Fatal(err)
 	}
 
