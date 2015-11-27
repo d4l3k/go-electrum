@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/btcsuite/btcutil"
 	"github.com/btcsuite/btcutil/hdkeychain"
 )
 
@@ -45,5 +46,9 @@ func TestWalletCreationAndLoad(t *testing.T) {
 		for _, addr := range addrs {
 			fmt.Printf("addr %s\n", addr.String())
 		}
+	}
+	err = wallet.SendBitcoin(map[string]btcutil.Amount{"171RiZZqGzgB25Wxn3MKqo4JsjkMNSJFJe": 0}, 0)
+	if err != nil {
+		t.Fatal(err)
 	}
 }

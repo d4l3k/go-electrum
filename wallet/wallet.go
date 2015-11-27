@@ -64,6 +64,10 @@ func (w *Wallet) SendBitcoin(amounts map[string]btcutil.Amount, minconf int) err
 		return err
 	}
 
+	log.Printf("creating tx")
+
+	// TODO: make this work
+
 	// taken from https://github.com/btcsuite/btcwallet/blob/master/wallet/wallet.go SendPairs
 
 	// Create transaction, replying with an error if the creation
@@ -73,17 +77,21 @@ func (w *Wallet) SendBitcoin(amounts map[string]btcutil.Amount, minconf int) err
 		return err
 	}
 
+	log.Printf("created tx %#v", createdTx)
+
 	// Create transaction record and insert into the db.
 	rec, err := wtxmgr.NewTxRecordFromMsgTx(createdTx.MsgTx, time.Now())
 	if err != nil {
 		log.Printf("Cannot create record for created transaction: %v", err)
 		return err
 	}
+	log.Printf("new txrecord %#v", rec)
 	err = w.wallet.TxStore.InsertTx(rec, nil)
 	if err != nil {
 		log.Printf("Error adding sent tx history: %v", err)
 		return err
 	}
+	log.Printf("inserted tx")
 
 	if createdTx.ChangeIndex >= 0 {
 		err = w.wallet.TxStore.AddCredit(rec, nil, uint32(createdTx.ChangeIndex), true)
@@ -92,6 +100,8 @@ func (w *Wallet) SendBitcoin(amounts map[string]btcutil.Amount, minconf int) err
 			return err
 		}
 	}
+
+	log.Printf("broadcasting")
 
 	resp, err := w.node.BlockchainTransactionBroadcast(rec.SerializedTx)
 	if err != nil {
@@ -160,7 +170,7 @@ func openWallet(db walletdb.DB, privPass string, seed []byte) (*Wallet, error) {
 		ObtainSeed:        returnBytes(seed),
 		ObtainPrivatePass: returnBytes([]byte(privPass)),
 	}
-	w, err := wallet.Open(nil, bitcoinNetwork.Params, db, addrMgrNS, txMgrNS, cbs)
+	backWallet, err := wallet.Open(nil, bitcoinNetwork.Params, db, addrMgrNS, txMgrNS, cbs)
 	if err != nil {
 		return nil, err
 	}
@@ -171,8 +181,56 @@ func openWallet(db walletdb.DB, privPass string, seed []byte) (*Wallet, error) {
 		return nil, err
 	}
 
-	return &Wallet{
-		wallet: w,
+	w := &Wallet{
+		wallet: backWallet,
 		node:   node,
-	}, nil
+	}
+
+	addrs, err := w.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	for _, addr := range addrs {
+		if err := w.watchAddress(addr.String()); err != nil {
+			return nil, err
+		}
+	}
+
+	return w, nil
+}
+
+func (w *Wallet) watchAddress(addr string) error {
+	c, err := w.node.BlockchainAddressSubscribe(addr)
+	if err != nil {
+		return err
+	}
+	// TODO(d4l3k) handle history
+	// w.node.BlockchainAddressGetHistory
+	go w.handleTransactions(c)
+	return nil
+}
+
+func (w *Wallet) handleTransactions(c <-chan string) {
+	var err error
+	for txid := range c {
+		var tx string
+		if tx, err = w.node.BlockchainTransactionGet(txid); err != nil {
+			break
+		}
+		if err = w.insertTx(tx); err != nil {
+			break
+		}
+	}
+	if err != nil {
+		log.Println(err)
+		// TODO(d4l3k): Better error handling.
+	}
+}
+
+func (w *Wallet) insertTx(tx string) error {
+	rec, err := wtxmgr.NewTxRecord([]byte(tx), time.Now())
+	if err != nil {
+		return err
+	}
+	return w.wallet.TxStore.InsertTx(rec, nil)
 }
