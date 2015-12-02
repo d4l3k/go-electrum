@@ -12,8 +12,11 @@ Packages provided
 * [irc](https://godoc.org/github.com/d4l3k/go-electrum/irc) - A helper module for finding electrum servers using the [#electrum IRC channel](http://docs.electrum.org/en/latest/protocol.html?highlight=irc#server-peers-subscribe) on Freenode.
 
 ## Usage
+See [example/](https://github.com/d4l3k/go-electrum/tree/master/example) for more.
+
+### electrum [![GoDoc](https://godoc.org/github.com/d4l3k/go-electrum/electrum?status.svg)](https://godoc.org/github.com/d4l3k/go-electrum/electrum)
 ```bash
-go get -u "github.com/d4l3k/go-electrum/electrum"
+$ go get -u github.com/d4l3k/go-electrum/electrum
 ```
 
 ```go
@@ -21,6 +24,7 @@ package main
 
 import (
   "log"
+
   "github.com/d4l3k/go-electrum/electrum"
 )
 
@@ -36,7 +40,66 @@ func main() {
 	log.Printf("Address balance: %+v", balance)
 }
 ```
-See [example/](https://github.com/d4l3k/go-electrum/tree/master/example) for more.
+
+### wallet [![GoDoc](https://godoc.org/github.com/d4l3k/go-electrum/wallet?status.svg)](https://godoc.org/github.com/d4l3k/go-electrum/wallet)
+
+```bash
+$ go get -u github.com/d4l3k/go-electrum/wallet
+```
+
+```go
+package main
+
+import (
+  "log"
+
+  "github.com/btcsuite/btcutil"
+  "github.com/d4l3k/go-electrum/wallet"
+)
+
+func main() {
+  seed, err := hdkeychain.GenerateSeed(hdkeychain.RecommendedSeedLen)
+  if err != nil {
+    log.Fatal(err)
+  }
+  w, err := wallet.Create("test.wallet", "pass", seed)
+  if err != nil {
+    log.Fatal(err)
+  }
+  addrs, err := w.GenAddresses(1)
+  if err != nil {
+    log.Fatal(err)
+  }
+  log.Printf("Address: %s", addrs[0])
+  err = w.SendBitcoin(map[string]btcutil.Amount{
+    "18mS21JLSWJcTwKV8ZEv5SvroKAqkbYfPy": btcutil.NewAmount(1.0),
+  }, 6)
+  if err != nil {
+    log.Fatal(err)
+  }
+}
+```
+
+### irc [![GoDoc](https://godoc.org/github.com/d4l3k/go-electrum/irc?status.svg)](https://godoc.org/github.com/d4l3k/go-electrum/irc)
+```bash
+$ go get -u github.com/d4l3k/go-electrum/irc
+```
+
+```go
+package main
+
+import (
+	"log"
+
+	"github.com/d4l3k/go-electrum/irc"
+)
+
+func main() {
+	log.Println(irc.FindElectrumServers())
+}
+```
+
+
 
 # License
 go-electrum is licensed under the MIT license.

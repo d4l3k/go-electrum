@@ -1,3 +1,8 @@
+/*
+Package wallet provides a simple interface to btcwallet and electrum.
+
+This is designed to make accepting and sending bitcoin really easy using Go.
+*/
 package wallet
 
 import (
@@ -121,9 +126,9 @@ func stripManagedAddrs(mAddrs []waddrmgr.ManagedAddress) []btcutil.Address {
 	return addrs
 }
 
-// CreateWallet creates a wallet with the specified path, private key password, and seed.
+// Create creates a wallet with the specified path, private key password and seed.
 // Seed can be created using: hdkeychain.GenerateSeed(hdkeychain.RecommendedSeedLen)
-func CreateWallet(path, privPass string, seed []byte) (*Wallet, error) {
+func Create(path, privPass string, seed []byte) (*Wallet, error) {
 	db, err := walletdb.Create("bdb", path)
 	if err != nil {
 		return nil, err
@@ -148,7 +153,8 @@ func returnBytes(bytes []byte) func() ([]byte, error) {
 	}
 }
 
-func LoadWallet(path, privPass string, seed []byte) (*Wallet, error) {
+// Load loads a wallet with the specified path, private key password and seed.
+func Load(path, privPass string, seed []byte) (*Wallet, error) {
 	db, err := walletdb.Open("bdb", path)
 	if err != nil {
 		return nil, err
