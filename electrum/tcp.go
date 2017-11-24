@@ -2,6 +2,7 @@ package electrum
 
 import (
 	"bufio"
+	"crypto/tls"
 	"log"
 	"net"
 )
@@ -14,6 +15,20 @@ type TCPTransport struct {
 
 func NewTCPTransport(addr string) (*TCPTransport, error) {
 	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	t := &TCPTransport{
+		conn:      conn,
+		responses: make(chan []byte),
+		errors:    make(chan error),
+	}
+	go t.listen()
+	return t, nil
+}
+
+func NewSSLTransport(addr string, config *tls.Config) (*TCPTransport, error) {
+	conn, err := tls.Dial("tcp", addr, config)
 	if err != nil {
 		return nil, err
 	}

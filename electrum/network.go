@@ -1,6 +1,7 @@
 package electrum
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -69,6 +70,21 @@ func (n *Node) ConnectTCP(addr string) error {
 	}
 	n.Address = addr
 	transport, err := NewTCPTransport(addr)
+	if err != nil {
+		return err
+	}
+	n.transport = transport
+	go n.listen()
+	return nil
+}
+
+// ConnectSLL creates a new SLL connection to the specified address.
+func (n *Node) ConnectSSL(addr string, config *tls.Config) error {
+	if n.transport != nil {
+		return ErrNodeConnected
+	}
+	n.Address = addr
+	transport, err := NewSSLTransport(addr, config)
 	if err != nil {
 		return err
 	}
