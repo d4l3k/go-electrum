@@ -3,6 +3,7 @@ package electrum
 import (
 	"encoding/json"
 	"log"
+	"strconv"
 
 	"github.com/btcsuite/btcutil"
 )
@@ -174,5 +175,15 @@ func (n *Node) BlockchainTransactionGetMerkle() error { return ErrNotImplemented
 func (n *Node) BlockchainTransactionGet(txid string) (string, error) {
 	resp := &basicResp{}
 	err := n.request("blockchain.transaction.get", []string{txid}, resp)
+	return resp.Result, err
+}
+
+// http://docs.electrum.org/en/latest/protocol.html#blockchain-estimatefee
+// BlockchainEstimateFee estimates the transaction fee per kilobyte that needs to be paid for a transaction to be included within a certain number of blocks.
+func (n *Node) BlockchainEstimateFee(block int) (float64, error) {
+	resp := &struct {
+		Result float64 `json:"result"`
+	}{}
+	err := n.request("blockchain.estimatefee", []string{strconv.Itoa(block)}, resp)
 	return resp.Result, err
 }
